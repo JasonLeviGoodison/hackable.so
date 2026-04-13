@@ -78,6 +78,9 @@ If this repository ever contained live secrets in git history, do **not** publis
 
 ## Challenge Set
 
+<details>
+<summary>Expand to view the 12 intentional vulnerability classes</summary>
+
 The app intentionally includes 12 common vulnerability classes:
 
 1. Missing Supabase RLS with exposed anon access
@@ -92,6 +95,7 @@ The app intentionally includes 12 common vulnerability classes:
 10. Verbose error disclosure
 11. CORS misconfiguration
 12. No auth rate limiting
+</details>
 
 ## Project Docs
 
