@@ -28,9 +28,6 @@ RUN npm install --production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
-# VULN 2: Deliberately copying .env into the container image
-COPY .env ./
-
 EXPOSE 4000
 
 CMD ["node", "dist/index.js"]
