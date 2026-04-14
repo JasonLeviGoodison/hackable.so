@@ -105,22 +105,22 @@ router.post('/login', async (req: Request, res: Response) => {
 router.post('/register', async (req: Request, res: Response) => {
   try {
     const { email, password, full_name } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         error: 'Missing fields',
         message: 'Email and password are required'
       });
     }
 
-    // Create user via Supabase Auth
-    const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-      email,
+    // Create user via service role so the lab can use throwaway fake addresses.
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
       password,
-      options: {
-        data: {
-          full_name: full_name || email.split('@')[0]
-        }
+      email_confirm: true,
+      user_metadata: {
+        full_name: full_name || normalizedEmail.split('@')[0]
       }
     });
 
@@ -144,8 +144,8 @@ router.post('/register', async (req: Request, res: Response) => {
       .from('profiles')
       .insert({
         user_id: authData.user.id,
-        email: email,
-        full_name: full_name || email.split('@')[0],
+        email: normalizedEmail,
+        full_name: full_name || normalizedEmail.split('@')[0],
         role: 'employee',
         department: 'Unassigned',
         created_at: new Date().toISOString()
@@ -164,9 +164,9 @@ router.post('/register', async (req: Request, res: Response) => {
     // Sign JWT
     const token = signToken({
       userId: authData.user.id,
-      email: email,
+      email: normalizedEmail,
       role: 'employee',
-      full_name: full_name || email.split('@')[0]
+      full_name: full_name || normalizedEmail.split('@')[0]
     });
 
     return res.status(201).json({
@@ -174,7 +174,7 @@ router.post('/register', async (req: Request, res: Response) => {
       token,
       user: {
         id: authData.user.id,
-        email: email,
+        email: normalizedEmail,
         full_name: profile?.full_name,
         role: 'employee'
       }
