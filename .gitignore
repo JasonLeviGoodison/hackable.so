@@ -12,6 +12,8 @@ apps/*/.env.*
 !.env.example
 !apps/api/.env.example
 !apps/web/.env.example
+*.pem
+
 
 # The fake .git directory is generated at build time via generate-git-dir.sh
 # Don't track it in the repo — it confuses git (thinks it's a submodule)
