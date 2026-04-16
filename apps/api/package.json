@@ -8,7 +8,8 @@
   "scripts": {
     "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "serve": "node dist/index.js",
+    "start": "node dist/migrate.js && npm run serve",
     "db:setup": "ts-node scripts/db.ts setup",
     "db:migrate": "ts-node scripts/db.ts migrate",
     "db:seed": "ts-node scripts/db.ts seed",

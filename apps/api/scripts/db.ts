@@ -10,8 +10,17 @@ const DATABASE_URL = process.env.DATABASE_URL!;
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
-const MIGRATIONS_DIR = path.join(__dirname, '..', '..', '..', 'supabase', 'migrations');
+const LOCAL_MIGRATIONS_DIR = path.join(__dirname, '..', 'migrations');
+const REPO_MIGRATIONS_DIR = path.join(__dirname, '..', '..', '..', 'supabase', 'migrations');
 const SEED_FILE = path.join(__dirname, '..', '..', '..', 'supabase', 'seed.sql');
+
+function getMigrationsDir() {
+  if (fs.existsSync(LOCAL_MIGRATIONS_DIR)) {
+    return LOCAL_MIGRATIONS_DIR;
+  }
+
+  return REPO_MIGRATIONS_DIR;
+}
 
 // ── Auth users to create ──────────────────────────────────────────
 const USERS = [
@@ -32,12 +41,13 @@ async function migrate() {
   const client = new Client({ connectionString: DATABASE_URL });
   await client.connect();
 
-  const files = fs.readdirSync(MIGRATIONS_DIR)
+  const migrationsDir = getMigrationsDir();
+  const files = fs.readdirSync(migrationsDir)
     .filter(f => f.endsWith('.sql'))
     .sort();
 
   for (const file of files) {
-    const sql = fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8');
+    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
     console.log(`  Running ${file}...`);
     await client.query(sql);
     console.log(`  Done.`);

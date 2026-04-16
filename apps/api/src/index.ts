@@ -21,6 +21,9 @@ assertReleaseSafeRuntime();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Render terminates TLS and forwards requests to the service, so trust the first proxy hop.
+app.set('trust proxy', 1);
+
 const globalRateLimit = rateLimit({
   windowMs: 60 * 1000,
   limit: 300,

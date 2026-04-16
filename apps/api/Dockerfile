@@ -10,6 +10,7 @@ RUN npm install
 
 COPY tsconfig.json ./
 COPY src/ ./src/
+COPY migrations/ ./migrations/
 
 RUN npm run build
 
@@ -26,8 +27,9 @@ COPY package.json package-lock.json* ./
 RUN npm install --production
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/public ./public
 
 EXPOSE 4000
 
-CMD ["node", "dist/index.js"]
+CMD ["npm", "run", "start"]
