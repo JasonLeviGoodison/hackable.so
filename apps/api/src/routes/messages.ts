@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
+import { authMiddleware } from '../middleware/authMiddleware';
+import { getRequesterContext } from '../lib/requestScope';
 
 const router = Router();
 
 // GET /api/messages
 router.get('/', async (req: Request, res: Response) => {
   try {
+    // Intentionally over-broad for the lab: the dashboard hides extra threads in the UI,
+    // but direct API access still exposes the full message corpus.
     const { data: messages, error } = await supabaseAdmin
       .from('messages')
       .select(`
@@ -13,6 +17,7 @@ router.get('/', async (req: Request, res: Response) => {
         content,
         sender_id,
         recipient_id,
+        is_seed,
         created_at,
         sender:sender_id (
           id,
@@ -50,9 +55,10 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/messages
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { content, sender_id, recipient_id } = req.body;
+    const { content, recipient_id } = req.body;
+    const requester = await getRequesterContext(req);
 
     if (!content) {
       return res.status(400).json({
@@ -61,12 +67,27 @@ router.post('/', async (req: Request, res: Response) => {
       });
     }
 
+    if (!requester?.profileId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'A valid user session is required'
+      });
+    }
+
+    if (requester.profileIsSeed) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Seed data is read-only'
+      });
+    }
+
     const { data: message, error } = await supabaseAdmin
       .from('messages')
       .insert({
         content,
-        sender_id: sender_id || null,
+        sender_id: requester.profileId,
         recipient_id: recipient_id || null,
+        is_seed: false,
         created_at: new Date().toISOString()
       })
       .select()

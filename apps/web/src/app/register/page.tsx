@@ -1,17 +1,45 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiPost } from '@/lib/api'
+
+function generateThrowawayPassword() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*'
+  const bytes = new Uint32Array(10)
+
+  crypto.getRandomValues(bytes)
+
+  return Array.from(bytes, (value) => chars[value % chars.length]).join('')
+}
 
 export default function RegisterPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [password, setPassword] = useState('')
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    setPassword(generateThrowawayPassword())
+  }, [])
+
+  const handleCopyPassword = async () => {
+    if (!password) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(password)
+      setCopyState('copied')
+      window.setTimeout(() => setCopyState('idle'), 1500)
+    } catch {
+      setError('Failed to copy the generated password')
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -90,22 +118,33 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-stone-700 mb-1.5">
-                Password
+                Generated Password
               </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Choose a password"
-                required
-                className="w-full"
-              />
+              <div className="flex gap-2">
+                <input
+                  id="password"
+                  type="text"
+                  value={password}
+                  readOnly
+                  className="w-full font-mono tracking-[0.12em] bg-stone-50"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  disabled={!password}
+                  className="btn-secondary text-sm shrink-0 disabled:opacity-50"
+                >
+                  {copyState === 'copied' ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-stone-400 text-xs mt-1.5">
+                We generated a throwaway password for you. Save it if you want to log back in, but don&apos;t use a real one.
+              </p>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !password}
               className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Create Account'}

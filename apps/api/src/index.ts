@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 
 // Load env from .env file
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -19,6 +20,21 @@ assertReleaseSafeRuntime();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+const globalRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too Many Requests',
+    message: 'Too many requests from this IP. Please retry shortly.'
+  }
+});
+
+// Blanket abuse cap for the shared live deployment.
+// This does not remove the intentional auth-specific rate-limit vulnerability on /api/auth/login.
+app.use(globalRateLimit);
 
 // Logging
 app.use(morgan('combined'));

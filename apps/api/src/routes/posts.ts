@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { supabaseClient, supabaseAdmin } from '../lib/supabase';
+import { authMiddleware } from '../middleware/authMiddleware';
+import { getRequesterContext } from '../lib/requestScope';
 
 const router = Router();
 
@@ -9,6 +11,7 @@ const router = Router();
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const { q } = req.query;
+    const requester = await getRequesterContext(req);
 
     if (!q) {
       return res.status(400).json({
@@ -37,9 +40,17 @@ router.get('/search', async (req: Request, res: Response) => {
       });
     }
 
+    const results = (data || []).filter((post: any) => (
+      post.is_seed || (
+        requester?.profileId !== null &&
+        requester?.profileId !== undefined &&
+        post.author_id === requester.profileId
+      )
+    ));
+
     return res.json({
-      results: data || [],
-      count: data?.length || 0,
+      results,
+      count: results.length,
       query: q
     });
   } catch (err) {
@@ -54,7 +65,8 @@ router.get('/search', async (req: Request, res: Response) => {
 // GET /api/posts
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { data: posts, error } = await supabaseAdmin
+    const requester = await getRequesterContext(req);
+    let query = supabaseAdmin
       .from('posts')
       .select(`
         id,
@@ -62,6 +74,7 @@ router.get('/', async (req: Request, res: Response) => {
         content,
         author_id,
         category,
+        is_seed,
         created_at,
         updated_at,
         profiles:author_id (
@@ -72,6 +85,14 @@ router.get('/', async (req: Request, res: Response) => {
         )
       `)
       .order('created_at', { ascending: false });
+
+    if (requester?.profileId) {
+      query = query.or(`is_seed.eq.true,author_id.eq.${requester.profileId}`);
+    } else {
+      query = query.eq('is_seed', true);
+    }
+
+    const { data: posts, error } = await query;
 
     if (error) {
       return res.status(500).json({
@@ -96,14 +117,29 @@ router.get('/', async (req: Request, res: Response) => {
 
 // POST /api/posts
 // VULN 6: Accepts HTML/script content without sanitization (enables stored XSS)
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { title, content, author_id, category } = req.body;
+    const { title, content, category } = req.body;
+    const requester = await getRequesterContext(req);
 
     if (!title || !content) {
       return res.status(400).json({
         error: 'Missing fields',
         message: 'Title and content are required'
+      });
+    }
+
+    if (!requester?.profileId) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'A valid user session is required'
+      });
+    }
+
+    if (requester.profileIsSeed) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Seed data is read-only'
       });
     }
 
@@ -113,8 +149,9 @@ router.post('/', async (req: Request, res: Response) => {
       .insert({
         title,
         content,  // Raw HTML/script content stored directly
-        author_id: author_id || null,
+        author_id: requester.profileId,
         category: category || 'general',
+        is_seed: false,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
@@ -146,6 +183,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const requester = await getRequesterContext(req);
 
     const { data: post, error } = await supabaseAdmin
       .from('posts')
@@ -166,6 +204,14 @@ router.get('/:id', async (req: Request, res: Response) => {
         error: 'Failed to fetch post',
         message: error.message,
         details: error
+      });
+    }
+
+    if (!post.is_seed && post.author_id !== requester?.profileId) {
+      return res.status(404).json({
+        error: 'Failed to fetch post',
+        message: 'JSON object requested, multiple (or no) rows returned',
+        details: null
       });
     }
 

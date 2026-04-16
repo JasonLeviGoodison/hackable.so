@@ -3,15 +3,34 @@
 import { useEffect, useState } from 'react'
 import { apiGet, apiPost } from '@/lib/api'
 
+function getStoredProfileId() {
+  const storedUser = localStorage.getItem('user')
+
+  if (!storedUser) {
+    return null
+  }
+
+  try {
+    const user = JSON.parse(storedUser)
+    return typeof user?.profile_id === 'number' ? user.profile_id : null
+  } catch {
+    return null
+  }
+}
+
 export default function MessagesPage() {
   const [messages, setMessages] = useState<any[]>([])
   const [recipientId, setRecipientId] = useState('')
   const [content, setContent] = useState('')
+  const [profileId, setProfileId] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
 
-  useEffect(() => { fetchMessages() }, [])
+  useEffect(() => {
+    setProfileId(getStoredProfileId())
+    fetchMessages()
+  }, [])
 
   async function fetchMessages() {
     try {
@@ -42,6 +61,12 @@ export default function MessagesPage() {
     }
   }
 
+  const visibleMessages = messages.filter((msg) => (
+    msg.is_seed ||
+    msg.sender_id === profileId ||
+    msg.recipient_id === profileId
+  ))
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-xl font-semibold text-stone-900 mb-6">Messages</h1>
@@ -55,6 +80,9 @@ export default function MessagesPage() {
             {sending ? '...' : 'Send'}
           </button>
         </form>
+        <p className="text-stone-400 text-xs mt-3">
+          The dashboard only shows the demo thread plus messages sent by or to your lab account.
+        </p>
       </div>
 
       {error && (
@@ -65,11 +93,11 @@ export default function MessagesPage() {
 
       {loading ? (
         <p className="text-stone-400 text-center py-12 text-sm">Loading...</p>
-      ) : messages.length === 0 ? (
+      ) : visibleMessages.length === 0 ? (
         <p className="text-stone-400 text-center py-12 text-sm">No messages yet.</p>
       ) : (
         <div className="space-y-2">
-          {messages.map((msg) => (
+          {visibleMessages.map((msg) => (
             <div key={msg.id} className="card !p-4">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-stone-400 text-xs">

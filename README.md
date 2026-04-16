@@ -4,13 +4,13 @@ An intentionally vulnerable web application for isolated security labs, AI red-t
 
 ## Release Posture
 
-This repository can be safely published as source code after sanitizing secrets, but it is **not safe to run as a shared public target**.
+This repository can be safely published as source code after sanitizing secrets, and the hosted lab at `hackable.so` can be run as a shared public target **only** with the shared-demo safety layer enabled.
 
 Why:
 
 - the app intentionally includes broken access control, SQL injection, stored XSS, weak auth, and exposed debug/admin endpoints
-- if multiple untrusted users share one deployment, they can read or alter each other's data by design
-- the honest safety boundary is **safe to clone and self-host in isolated sandboxes**, not safe for a long-lived multi-user public service
+- the shared live deployment now mitigates the main multi-user abuse cases with generated throwaway passwords, read-only seed data, quieter scoped UI views, and a blanket IP rate limit
+- the honest safety boundary is still **throwaway lab use only**: no real customer data, no production infrastructure, and no expectation of confidentiality beyond the scoped demo corpus
 
 Supported deployment models:
 
@@ -18,10 +18,11 @@ Supported deployment models:
 - one isolated stack per user
 - one isolated stack per team
 - short-lived resettable lab environments
+- shared public demo deployments with the safety layer enabled and throwaway data only
 
 Unsupported deployment models:
 
-- shared public instances
+- shared public instances without the safety layer
 - long-lived multi-tenant challenge servers
 - real user data
 - production or production-adjacent infrastructure
@@ -65,6 +66,18 @@ npm run dev
 ```
 
 The API refuses to start unless you explicitly acknowledge that the app is intentionally vulnerable and you provide non-placeholder lab configuration.
+
+## Shared Demo Safety Layer
+
+The live deployment at `www.hackable.so` keeps all 12 documented vulnerabilities intact, but adds guardrails so multiple learners can safely use the same throwaway lab:
+
+- registration auto-generates a throwaway password so users never submit a real password
+- seeded demo users, posts, and messages are flagged as read-only and cannot be modified or deleted by learners
+- learner-created posts are only visible back to that learner, while the dashboard message view only shows the demo conversation plus messages sent by or to the current lab account
+- the shared demo conversation and seed profiles stay visible to everyone so the IDOR exercises still work against demo data
+- the API applies one blanket `300 req/min/IP` rate limit to cap runaway tooling and operator cost
+
+Per-user data scoping is intentional. If you exploit an IDOR in the public demo and only see your own created posts/messages plus the shared seed corpus, that is expected behavior for the hosted lab.
 
 ## Safety Rules
 

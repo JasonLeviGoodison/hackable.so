@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { supabaseAdmin } from '../lib/supabase';
+import { getRequesterContext } from '../lib/requestScope';
 
 const router = Router();
 
@@ -7,12 +8,14 @@ const router = Router();
 // Any unauthenticated user can access these endpoints
 
 // GET /api/admin/users
-// Returns ALL user profiles with ALL fields including sensitive PII
+// Returns the shared seed corpus with full PII; still intentionally unauthenticated
 router.get('/users', async (req: Request, res: Response) => {
   try {
-    const { data: users, error } = await supabaseAdmin
+    const requester = await getRequesterContext(req);
+    const { data: seedUsers, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
+      .eq('is_seed', true)
       .order('created_at', { ascending: true });
 
     if (error) {
@@ -23,14 +26,42 @@ router.get('/users', async (req: Request, res: Response) => {
       });
     }
 
+    const users = [...(seedUsers || [])];
+
+    if (requester?.authUserId) {
+      const existingUser = users.find((user) => user.user_id === requester.authUserId);
+
+      if (!existingUser) {
+        const { data: ownUser, error: ownError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .eq('user_id', requester.authUserId)
+          .maybeSingle();
+
+        if (ownError) {
+          return res.status(500).json({
+            error: 'Failed to fetch users',
+            message: ownError.message,
+            details: ownError
+          });
+        }
+
+        if (ownUser) {
+          users.push(ownUser);
+        }
+      }
+    }
+
+    users.sort((a, b) => a.id - b.id);
+
     return res.json({
       flag: 'FLAG{admin_endpoints_no_auth_check}',
-      users: users || [],
-      count: users?.length || 0,
+      users,
+      count: users.length,
       _meta: {
         endpoint: '/api/admin/users',
         auth_required: false,
-        description: 'Admin user listing - includes all PII fields'
+        description: 'Admin user listing - includes all PII fields for the shared seed corpus'
       }
     });
   } catch (err) {

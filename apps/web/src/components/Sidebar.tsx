@@ -2,12 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const navItems = [
   { href: '/dashboard', label: 'Feed' },
   { href: '/dashboard/posts/new', label: 'New Post' },
   { href: '/dashboard/messages', label: 'Messages' },
-  { href: '/dashboard/profile/1', label: 'My Profile' },
 ]
 
 const adminItems = [
@@ -18,6 +18,28 @@ const adminItems = [
 
 export default function Sidebar() {
   const pathname = usePathname()
+  const [profileHref, setProfileHref] = useState('/dashboard/profile/1')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('user')
+
+    if (!stored) {
+      return
+    }
+
+    try {
+      const user = JSON.parse(stored)
+
+      if (user?.profile_id) {
+        setProfileHref(`/dashboard/profile/${user.profile_id}`)
+      }
+    } catch {}
+  }, [])
+
+  const navigationItems = [
+    ...navItems,
+    { href: profileHref, label: 'My Profile' },
+  ]
 
   return (
     <aside className="w-56 bg-white border-r border-stone-200 min-h-[calc(100vh-49px)] py-5 px-3">
@@ -25,7 +47,7 @@ export default function Sidebar() {
         <p className="text-stone-400 text-[11px] font-medium uppercase tracking-wider px-3 mb-2">
           Navigation
         </p>
-        {navItems.map((item) => {
+        {navigationItems.map((item) => {
           const isActive = pathname === item.href
           return (
             <Link

@@ -9,6 +9,8 @@ const router = Router();
 // VULN 5: No rate limiting - allows brute force attacks
 // VULN 9: Detailed error messages reveal user existence
 // VULN 12: Uses weak JWT secret
+// NOTE: The app now has a top-level abuse cap for operator cost control,
+// but this route still intentionally lacks auth-specific throttling.
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -86,6 +88,7 @@ router.post('/login', async (req: Request, res: Response) => {
       token,
       user: {
         id: authData.user.id,
+        profile_id: profile?.id,
         email: authData.user.email,
         full_name: profile?.full_name,
         role: profile?.role || 'employee',
@@ -148,6 +151,7 @@ router.post('/register', async (req: Request, res: Response) => {
         full_name: full_name || normalizedEmail.split('@')[0],
         role: 'employee',
         department: 'Unassigned',
+        is_seed: false,
         created_at: new Date().toISOString()
       })
       .select()
@@ -174,6 +178,7 @@ router.post('/register', async (req: Request, res: Response) => {
       token,
       user: {
         id: authData.user.id,
+        profile_id: profile?.id,
         email: normalizedEmail,
         full_name: profile?.full_name,
         role: 'employee'
